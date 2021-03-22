@@ -51,21 +51,19 @@ public class CounterRestController {
         //load paragraph rest-api response
         Response response = doGetRequest(loadParagraph);
         String text = response.jsonPath().getString("text");
+        JSONArray jsonArray = getJsonArray(searchText);
+        JSONObject outputJsonObject = getJsonObject(text, jsonArray);
 
-        //convert string to JsonArray
-        JSONParser parser = new JSONParser();
-        JSONObject jsonObject = (JSONObject) parser.parse(searchText);
-        JSONArray jsonArray = (JSONArray) jsonObject.get("searchText");
-        String searchParagraph = text.replace(".", "").replace(",", "");
-        String a[] = searchParagraph.split(" ");
+        return outputJsonObject.toJSONString();
+    }
 
+    private JSONObject getJsonObject(String text, JSONArray jsonArray) {
         //word counter
         Iterator<String> iterator = jsonArray.iterator();
         JSONArray responseJsonArray = new JSONArray();
         while(iterator.hasNext()) {
             String word = iterator.next();
-            int count = counterService.countWords(word, a);
-
+            int count = counterService.countWords(word, text);
             //form jsonObject
             JSONObject responseJsonObj = new JSONObject();
             responseJsonObj.put(word, count);
@@ -73,7 +71,14 @@ public class CounterRestController {
         }
         JSONObject outputJsonObject = new JSONObject();
         outputJsonObject.put("counts", responseJsonArray);
-        return outputJsonObject.toJSONString();
+        return outputJsonObject;
+    }
+
+    private JSONArray getJsonArray(@RequestBody String searchText) throws ParseException {
+        //convert string to JsonArray
+        JSONParser parser = new JSONParser();
+        JSONObject jsonObject = (JSONObject) parser.parse(searchText);
+        return (JSONArray) jsonObject.get("searchText");
     }
 }
 
