@@ -11,10 +11,12 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.Iterator;
 
+import java.util.*;
 
 import static io.restassured.RestAssured.given;
 
@@ -29,21 +31,13 @@ public class CounterRestController {
     private CounterService counterService;
 
     @GetMapping("/load")
-    public Paragraph loadParagraph() {
-         return new Paragraph(environment.getProperty("counter.load.paragraph"));
-    }
-
-    public static Response doGetRequest(String endpoint) {
-        RestAssured.defaultParser = Parser.JSON;
-        return given()
-                .auth()
-                .preemptive()
-                .basic("user", "welcome123")
-                .when().get(endpoint);
+    public ResponseEntity<Paragraph> loadParagraph() {
+         return new ResponseEntity<>(new Paragraph(environment.getProperty("counter.load.paragraph")), HttpStatus.OK);
     }
 
     @PostMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String search(@RequestBody String searchText) throws ParseException {
+    public ResponseEntity<String> search(@RequestBody String searchText) throws ParseException {
+
         //form load paragraph rest-api call
         String port= environment.getProperty("server.port");
         String loadParagraph = "http://localhost:"+port+"/counter-api/load";
@@ -54,8 +48,20 @@ public class CounterRestController {
         JSONArray jsonArray = getJsonArray(searchText);
         JSONObject outputJsonObject = getJsonObject(text, jsonArray);
 
-        return outputJsonObject.toJSONString();
+        return new ResponseEntity<>(outputJsonObject.toJSONString(), HttpStatus.OK);
     }
+
+    @PostMapping(value ="/highest/top/{value}", consumes = "text/csv")
+    public ResponseEntity<String> highestCount(@PathVariable String value, @RequestBody String content) {
+        Map<String, Integer> result = counterService.buildWordMap(content, value);
+        String csvString="";
+        for(Map.Entry entry : result.entrySet())
+        {
+            csvString = csvString.concat(" "+entry.getKey()+"|"+entry.getValue());
+        }
+        return new ResponseEntity<>(csvString, HttpStatus.OK);
+    }
+
 
     private JSONObject getJsonObject(String text, JSONArray jsonArray) {
         //word counter
@@ -64,7 +70,6 @@ public class CounterRestController {
         while(iterator.hasNext()) {
             String word = iterator.next();
             int count = counterService.countWords(word, text);
-            //form jsonObject
             JSONObject responseJsonObj = new JSONObject();
             responseJsonObj.put(word, count);
             responseJsonArray.add(responseJsonObj);
@@ -80,5 +85,16 @@ public class CounterRestController {
         JSONObject jsonObject = (JSONObject) parser.parse(searchText);
         return (JSONArray) jsonObject.get("searchText");
     }
+
+    private static Response doGetRequest(String endpoint) {
+        RestAssured.defaultParser = Parser.JSON;
+        return given()
+                .auth()
+                .preemptive()
+                .basic("user", "welcome123")
+                .when().get(endpoint);
+    }
+
+
 }
 
